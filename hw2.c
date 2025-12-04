@@ -7,6 +7,9 @@
 #include "logging.h"
 #include "parser.h"
 
+#define  MAX_NUM_THREADS 4096
+#define MAX_NUM_COUNTERS 100
+
 // === Globals owned by dispatcher side (Dan) ===
 static job_queue_t g_job_queue;
 
@@ -17,32 +20,74 @@ static void trim_newline(char *s) {
         s[len-1] = '\0';
     }
 }
+static char* ltrim(char *s) {
+    while (*s == ' ' || *s == '\t') {
+        s++;
+    }
+    return s;
+}
 
-// TODO (Dan): parse command line args, validate them
+
+
 static int parse_args(int argc, char *argv[],
                       char **cmdfile,
                       int *num_threads,
                       int *num_counters,
                       int *log_enabled) {
-    (void)argc; (void)argv; (void)cmdfile;
-    (void)num_threads; (void)num_counters; (void)log_enabled;
+    if (argc != 5){
+      fprintf(stderr, "Wrong number of arguments\n");
+      return -1;
+      }
+      *cmdfile = argv[1];
+      *num_threads = atoi(argv[2]);
+      *num_counters = atoi(argv[3]);
+      *log_enabled = atoi(argv[4]);
+      if (*num_threads < 1 || *num_threads > MAX_NUM_THREADS) {
+        fprintf(stderr, "Wrong number of threads\n");
+        return -1;
+      }
+      if (*num_counters < 1 || *num_counters > MAX_NUM_COUNTERS) {
+        fprintf(stderr, "Wrong number of counters\n");
+        return -1;
+      }
+
+      if (*log_enabled < 0 || *log_enabled > 1) {
+        fprintf(stderr, "Wrong log enabled\n");
+        return -1;
+      }
     return 0;
 }
 
-// TODO (Dan): handle "dispatcher msleep x"
+
 static void dispatcher_handle_msleep(long long ms) {
-    (void)ms;
+    usleep(ms * 1000);
 }
 
-// TODO (Dan): wait until all outstanding worker jobs finished
 static void dispatcher_handle_wait(void) {
-    // use g_outstanding_jobs + cond
+    pthread_mutex_lock(&g_outstanding_mutex);
+    while (g_outstanding_jobs > 0 ) {
+      pthread_cond_wait(&g_outstanding_cond, &g_outstanding_mutex);
+    }
+    pthread_mutex_unlock(&g_outstanding_mutex);
 }
 
-// TODO (Dan): handle a worker line: create job_t, enqueue, bump outstanding_jobs
 static int dispatcher_enqueue_worker_job(const char *line, long long read_time_ms) {
-    (void)line;
-    (void)read_time_ms;
+  job_t *job = (job_t *)malloc(sizeof(job_t));
+  if (job == NULL) {
+    fprintf(stderr, "malloc failed!\n");
+    return -1;
+  }
+  job->cmdline = strdup(line);
+  job->read_time_ms = read_time_ms;
+  if (queue_enqueue(&g_job_queue, job) != 0){
+    fprintf(stderr, "queue_enqueue failed!\n");
+    free(job);
+    return -1;
+    }
+
+  pthread_mutex_lock(&g_outstanding_mutex);
+  g_outstanding_jobs++;
+  pthread_mutex_unlock(&g_outstanding_mutex);
     return 0;
 }
 
@@ -53,7 +98,7 @@ int main(int argc, char *argv[]) {
     int   log_enabled  = 0;
 
     if (parse_args(argc, argv, &cmdfile, &num_threads, &num_counters, &log_enabled) != 0) {
-        // TODO: print usage / error
+        printf("Error in parsing cmd args, see stderr for more info, exiting\n");
         return 1;
     }
 
@@ -70,21 +115,38 @@ int main(int argc, char *argv[]) {
     // === Main dispatcher loop (Dan) ===
     FILE *f = fopen(cmdfile, "r");
     if (!f) {
-        // TODO: print error
+        fprintf(stderr, "Failed to open file %s\n", cmdfile);
         return 1;
     }
 
     char line_buf[MAX_LINE_LEN];
+    char* parse_buf;
 
     while (fgets(line_buf, sizeof(line_buf), f)) {
         trim_newline(line_buf);
 
+        parse_buf = ltrim(line_buf);
         long long t_read = since_start_ms();
         logging_dispatcher_read_line(line_buf);
 
-        // TODO (Dan): decide if "dispatcher ..." or "worker ..."
-        // If dispatcher msleep / wait -> handle directly
-        // else if worker ... -> dispatcher_enqueue_worker_job(...)
+        if (strncmp(parse_buf, "dispatcher", 10) == 0) {
+            if (strncmp(parse_buf, "dispatcher_msleep", 17) == 0) {
+              char* q = parse_buf + 17;
+              q = ltrim(q);
+              long long msleep = atoll(q);
+              dispatcher_handle_msleep(msleep);
+            }
+            else if (strncmp(parse_buf, "dispatcher_wait", 15) == 0) {
+              dispatcher_handle_wait();
+            }
+            else{
+              fprintf(stderr, "Unknown dispatcher command\n");
+              continue;
+              }
+        }
+        else{
+          dispatcher_enqueue_worker_job(line_buf, t_read);
+        }
     }
 
     fclose(f);
