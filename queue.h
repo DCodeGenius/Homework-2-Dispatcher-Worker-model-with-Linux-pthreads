@@ -19,7 +19,7 @@ typedef struct job_queue {
     pthread_cond_t   not_empty;
 } job_queue_t;
 
-// === Dan: queue API to implement in queue.c ===
+// === queue API to implemented queue.c ===
 int  queue_init(job_queue_t *q);
 void queue_destroy(job_queue_t *q);
 int  queue_enqueue(job_queue_t *q, job_t *job);

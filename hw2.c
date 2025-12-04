@@ -77,7 +77,8 @@ static int dispatcher_enqueue_worker_job(const char *line, long long read_time_m
     fprintf(stderr, "malloc failed!\n");
     return -1;
   }
-  job->cmdline = strdup(line);
+  strncpy(job->cmdline, line, MAX_LINE_LEN);
+  job->cmdline[MAX_LINE_LEN] = '\0';
   job->read_time_ms = read_time_ms;
   if (queue_enqueue(&g_job_queue, job) != 0){
     fprintf(stderr, "queue_enqueue failed!\n");
@@ -153,6 +154,11 @@ int main(int argc, char *argv[]) {
 
     // After EOF: wait for all worker jobs (like dispatcher wait)
     dispatcher_handle_wait();
+
+    pthread_mutex_lock(&g_job_queue.mutex);
+    g_job_queue.shutdown = 1;
+    pthread_cond_broadcast(&g_job_queue.not_empty);
+    pthread_mutex_unlock(&g_job_queue.mutex);
 
     // Compute total runtime and set stats
     long long total_ms = since_start_ms();
