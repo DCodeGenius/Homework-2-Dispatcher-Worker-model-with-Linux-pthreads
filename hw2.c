@@ -171,22 +171,27 @@ int main(int argc, char *argv[]) {
         logging_dispatcher_read_line(line_buf);
 
         if (strncmp(parse_buf, "dispatcher", 10) == 0) {
-            if (strncmp(parse_buf, "dispatcher_msleep", 17) == 0) {
-              char* q = parse_buf + 17;
-              q = ltrim(q);
-              long long msleep = atoll(q);
-              dispatcher_handle_msleep(msleep);
+            // Skip "dispatcher"
+            char *cmd = parse_buf + 10;
+            cmd = ltrim(cmd);   // now cmd is "msleep 200" or "wait"
+
+            long long ms = 0;
+
+            // dispatcher msleep x
+            if (sscanf(cmd, "msleep %lld", &ms) == 1) {
+                dispatcher_handle_msleep(ms);
             }
-            else if (strncmp(parse_buf, "dispatcher_wait", 15) == 0) {
-              dispatcher_handle_wait();
+            // dispatcher wait
+            else if (strcmp(cmd, "wait") == 0) {
+                dispatcher_handle_wait();
             }
-            else{
-              fprintf(stderr, "Unknown dispatcher command\n");
-              continue;
-              }
+            else {
+                fprintf(stderr, "Unknown dispatcher command: %s\n", cmd);
+            }
         }
-        else{
-          dispatcher_enqueue_worker_job(line_buf, t_read);
+        else {
+            // everything else is a worker line
+            dispatcher_enqueue_worker_job(line_buf, t_read);
         }
     }
 
