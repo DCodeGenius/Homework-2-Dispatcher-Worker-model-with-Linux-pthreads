@@ -83,8 +83,8 @@ job_t *queue_dequeue(job_queue_t *q) {
 }
 
 void queue_shutdown(job_queue_t *q) {
-pthread_mutex_lock(q->mutex);
-g_job_queue.shutdown = 1;
-pthread_cond_broadcast(q->not_empty);
-pthread_mutex_unlock(q->mutex);
+pthread_mutex_lock(&q->mutex);
+q->shutdown = 1;
+pthread_cond_broadcast(&q->not_empty);
+pthread_mutex_unlock(&q->mutex);
 };
