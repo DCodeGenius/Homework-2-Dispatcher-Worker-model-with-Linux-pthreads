@@ -92,7 +92,6 @@ static long long execute_job_line(parsed_job_t *job){
 static void *worker_thread_main(void *arg) {
     worker_arg_t *worker_arg = (worker_arg_t *) arg;
     FILE* thread_file = logging_open_worker_log(worker_arg->worker_id);
-    long long turn_around_ms = 0;
     job_t *job;
     while (1) {
         job = queue_dequeue(g_queue);
