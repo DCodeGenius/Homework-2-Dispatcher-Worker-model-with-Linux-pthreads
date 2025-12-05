@@ -64,21 +64,21 @@ static long long execute_job_line(parsed_job_t *job){
 
     // Case 1: no repeat (or invalid repeat_index) – just run all commands in order
     if (r < 0 || r >= n) {
-        for (int i = 0; i < n; ++i) { //TODO why ++i not i++
+        for (int i = 0; i < n; i++) {
             run_basic_command(&job->commands[i]);
         }
     } else {
         // Case 2: there is a repeat at index r
 
         // run commands BEFORE repeat once
-        for (int i = 0; i < r; ++i) {
+        for (int i = 0; i < r; i++) {
             run_basic_command(&job->commands[i]);
         }
 
         // repeat commands AFTER
         long long times = job->commands[r].arg;
-        for (long long t = 0; t < times; ++t) {
-            for (int i = r + 1; i < n; ++i) {
+        for (long long t = 0; t < times; t++) {
+            for (int i = r + 1; i < n; i++) {
                 run_basic_command(&job->commands[i]);
             }
         }
@@ -111,8 +111,8 @@ static void *worker_thread_main(void *arg) {
             pthread_cond_signal(&g_outstanding_cond);
         }
         pthread_mutex_unlock(&g_outstanding_mutex);
-        parser_free_parsed_job(&g_parsed_jobs[worker_id]); //Only to free the cmds array
-        free_job(job);
+        parser_free_parsed_job(&g_parsed_jobs[worker_arg->worker_id]); //Only to free the cmds array
+        free(job);
     }
     // 2. loop: dequeue job, log start, parse + execute, log end
     // 3. compute turnaround time and call stats_record_job
@@ -144,5 +144,7 @@ int worker_start_threads(int num_threads, job_queue_t *queue) {
 
 
 void worker_join_threads(void) {
-    // TODO: join threads, free array
+    for (int i = 0; i < g_num_threads; i++) {
+        pthread_join(g_worker_threads[i], NULL);
+    }
 }
