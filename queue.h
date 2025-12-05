@@ -24,5 +24,6 @@ int  queue_init(job_queue_t *q);
 void queue_destroy(job_queue_t *q);
 int  queue_enqueue(job_queue_t *q, job_t *job);
 job_t *queue_dequeue(job_queue_t *q);    // blocks if empty (unless shutdown)
+void queue_shutdown(job_queue_t *q);
 
 #endif // QUEUE_H

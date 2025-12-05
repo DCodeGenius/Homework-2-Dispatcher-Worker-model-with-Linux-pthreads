@@ -7,17 +7,32 @@ FILE *g_dispatcher_log = NULL;
 // === Dispatcher side (Dan) ===
 
 int logging_open_dispatcher(void) {
-    // TODO: if g_log_enabled, open dispatcher.txt
+    if (!g_log_enabled) {
+        return 0; // logging disabled
+    }
+
+    g_dispatcher_log = fopen("dispatcher.txt", "w");
+    if (!g_dispatcher_log) {
+        fprintf(stderr, "Failed to open dispatcher.txt for writing\n");
+        return -1;
+    }
     return 0;
 }
 
 void logging_close_dispatcher(void) {
-    // TODO: close if open
+    if (g_dispatcher_log) {
+        fclose(g_dispatcher_log);
+        g_dispatcher_log = NULL;
+    }
 }
 
 void logging_dispatcher_read_line(const char *line) {
-    // TODO: TIME %lld: read cmd line: %s
-    (void)line;
+    if (!g_log_enabled || !g_dispatcher_log) {
+        return;
+    }
+    long long t = since_start_ms();
+    fprintf(g_dispatcher_log, "TIME %lld: read cmd line: %s\n", t, line);
+    fflush(g_dispatcher_log); // optional but safe
 }
 
 // === Worker side (Daniel) ===

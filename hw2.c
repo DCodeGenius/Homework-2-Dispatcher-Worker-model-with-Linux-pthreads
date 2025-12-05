@@ -92,6 +92,43 @@ static int dispatcher_enqueue_worker_job(const char *line, long long read_time_m
     return 0;
 }
 
+
+static void write_stats_file(void) {
+    FILE *f = fopen("stats.txt", "w");
+    if (!f) {
+        fprintf(stderr, "Failed to open stats.txt for writing\n");
+        return;
+    }
+
+    pthread_mutex_lock(&g_stats.mutex);
+
+    long long total   = g_stats.total_running_time_ms;
+    long long sum     = g_stats.jobs_sum_turnaround_ms;
+    long long min     = g_stats.jobs_min_turnaround_ms;
+    long long max     = g_stats.jobs_max_turnaround_ms;
+    long long count   = g_stats.jobs_count;
+
+    pthread_mutex_unlock(&g_stats.mutex);
+
+    double avg = (count > 0) ? ((double)sum / (double)count) : 0.0;
+
+    fprintf(f, "total running time: %lld milliseconds\n", total);
+    fprintf(f, "sum of jobs turnaround time: %lld milliseconds\n", sum);
+
+    if (count == 0) {
+        fprintf(f, "min job turnaround time: 0 milliseconds\n");
+        fprintf(f, "average job turnaround time: %.3f milliseconds\n", 0.0);
+        fprintf(f, "max job turnaround time: 0 milliseconds\n");
+    } else {
+        fprintf(f, "min job turnaround time: %lld milliseconds\n", min);
+        fprintf(f, "average job turnaround time: %.3f milliseconds\n", avg);
+        fprintf(f, "max job turnaround time: %lld milliseconds\n", max);
+    }
+
+    fclose(f);
+}
+
+
 int main(int argc, char *argv[]) {
     char *cmdfile = NULL;
     int   num_threads  = 0;
@@ -155,16 +192,13 @@ int main(int argc, char *argv[]) {
     // After EOF: wait for all worker jobs (like dispatcher wait)
     dispatcher_handle_wait();
 
-    pthread_mutex_lock(&g_job_queue.mutex);
-    g_job_queue.shutdown = 1;
-    pthread_cond_broadcast(&g_job_queue.not_empty);
-    pthread_mutex_unlock(&g_job_queue.mutex);
+    queue_shutdown(&g_job_queue);
 
     // Compute total runtime and set stats
     long long total_ms = since_start_ms();
     stats_set_total_runtime(total_ms);
+    write_stats_file();
 
-    // TODO (Dan): write stats.txt (using g_stats fields)
 
     // Cleanup
     logging_close_dispatcher();
