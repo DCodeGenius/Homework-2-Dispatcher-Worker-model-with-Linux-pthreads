@@ -49,12 +49,14 @@ void logging_close_worker_log(FILE *f) {
 }
 
 void logging_worker_start_job(FILE *f, const char *line) {
+     long long start_ms = since_start_ms();
+
     // TODO: TIME %lld: START job %s
     (void)f;
     (void)line;
 }
 
-void logging_worker_end_job(FILE *f, const char *line) {
+void logging_worker_end_job(FILE *f, const char *line, long long end_ms) {
     // TODO: TIME %lld: END job %s
     (void)f;
     (void)line;

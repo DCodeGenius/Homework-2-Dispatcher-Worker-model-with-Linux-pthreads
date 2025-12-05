@@ -19,6 +19,6 @@ void logging_dispatcher_read_line(const char *line);
 FILE *logging_open_worker_log(int worker_id);
 void   logging_close_worker_log(FILE *f);
 void   logging_worker_start_job(FILE *f, const char *line);
-void   logging_worker_end_job(FILE *f, const char *line);
+void   logging_worker_end_job(FILE *f, const char *line, long long end_ms);
 
 #endif // LOGGING_H

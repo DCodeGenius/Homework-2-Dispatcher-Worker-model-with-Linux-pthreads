@@ -12,6 +12,11 @@ extern int g_outstanding_jobs;
 extern pthread_mutex_t g_outstanding_mutex;
 extern pthread_cond_t  g_outstanding_cond;
 
+typedef struct worker_arg {
+    int worker_id;   // 0, 1, 2, ...
+    job_queue_t *queue;       // pointer to the shared queue
+} worker_arg_t;
+
 // === API (Daniel) ===
 int  worker_start_threads(int num_threads, job_queue_t *queue);
 void worker_join_threads(void);
